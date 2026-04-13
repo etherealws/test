@@ -1,0 +1,49 @@
+version: 2
+updates:
+  # Maven 依赖更新
+  - package-ecosystem: "maven"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "your-username"
+    assignees:
+      - "your-username"
+    labels:
+      - "dependencies"
+      - "maven"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    allow:
+      - dependency-type: "direct"
+      - dependency-type: "indirect"
+    ignore:
+      # 忽略某些依赖的更新
+      - dependency-name: "org.springframework.boot"
+        update-types: ["version-update:semver-major"]
+    groups:
+      spring-dependencies:
+        patterns:
+          - "org.springframework.*"
+          - "com.alibaba.cloud.*"
+      security-dependencies:
+        patterns:
+          - "org.owasp.*"
+          - "com.nimbusds.*"
+
+  # GitHub Actions 更新
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 5
+    labels:
+      - "github-actions"
+      - "dependencies"
+    commit-message:
+      prefix: "ci"
+      include: "scope"

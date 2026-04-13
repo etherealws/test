@@ -1,0 +1,143 @@
+version: '3.8'
+
+services:
+  # Nacos 服务注册与配置中心
+  nacos:
+    image: nacos/nacos-server:v2.2.3
+    container_name: cloud-demo-nacos
+    environment:
+      - MODE=standalone
+      - SPRING_DATASOURCE_PLATFORM=embedded
+    ports:
+      - "8848:8848"
+      - "9848:9848"
+    networks:
+      - cloud-demo-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8848/nacos/v1/console/health/readiness"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Sentinel 流量控制与熔断降级
+  sentinel:
+    image: bladex/sentinel-dashboard:1.8.6
+    container_name: cloud-demo-sentinel
+    ports:
+      - "8080:8080"
+    networks:
+      - cloud-demo-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MySQL 数据库 (可选)
+  mysql:
+    image: mysql:8.0
+    container_name: cloud-demo-mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=root123
+      - MYSQL_DATABASE=cloud_demo
+      - MYSQL_USER=cloud_user
+      - MYSQL_PASSWORD=cloud_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./docker/mysql/init:/docker-entrypoint-initdb.d
+    networks:
+      - cloud-demo-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis 缓存 (可选)
+  redis:
+    image: redis:7-alpine
+    container_name: cloud-demo-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - cloud-demo-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 商品服务
+  product-service:
+    build:
+      context: .
+      target: product-service
+    container_name: cloud-demo-product-service
+    environment:
+      - SPRING_CLOUD_NACOS_SERVER_ADDR=nacos:8848
+      - SPRING_CLOUD_SENTINEL_TRANSPORT_DASHBOARD=sentinel:8080
+    ports:
+      - "9000:9000"
+    depends_on:
+      nacos:
+        condition: service_healthy
+      sentinel:
+        condition: service_healthy
+    networks:
+      - cloud-demo-network
+    restart: unless-stopped
+
+  # 订单服务
+  order-service:
+    build:
+      context: .
+      target: order-service
+    container_name: cloud-demo-order-service
+    environment:
+      - SPRING_CLOUD_NACOS_SERVER_ADDR=nacos:8848
+      - SPRING_CLOUD_SENTINEL_TRANSPORT_DASHBOARD=sentinel:8080
+    ports:
+      - "8000:8000"
+    depends_on:
+      nacos:
+        condition: service_healthy
+      sentinel:
+        condition: service_healthy
+      product-service:
+        condition: service_started
+    networks:
+      - cloud-demo-network
+    restart: unless-stopped
+
+  # 网关服务
+  gateway:
+    build:
+      context: .
+      target: gateway
+    container_name: cloud-demo-gateway
+    environment:
+      - SPRING_CLOUD_NACOS_SERVER_ADDR=nacos:8848
+    ports:
+      - "80:80"
+    depends_on:
+      nacos:
+        condition: service_healthy
+      product-service:
+        condition: service_started
+      order-service:
+        condition: service_started
+    networks:
+      - cloud-demo-network
+    restart: unless-stopped
+
+networks:
+  cloud-demo-network:
+    driver: bridge
+
+volumes:
+  mysql-data:
+  redis-data:
