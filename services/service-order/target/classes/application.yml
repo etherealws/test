@@ -1,0 +1,44 @@
+server:
+  port: 8000
+spring:
+  profiles:
+    active: dev
+  application:
+    name: service-order
+  cloud:
+    nacos:
+      server-addr: 127.0.0.1:8848
+      config:
+        import-check:
+          enabled: false
+        namespace: ${spring.profiles.active:public}
+    openfeign:
+      client:
+        config:
+          default:
+            logger-level: full
+            connect-timeout: 1000
+            read-timeout: 2000
+          service-product:
+            connect-timeout: 3000
+            read-timeout: 5000
+            request-inceptors:
+              - com.example.interceptor.XTokenRequestInterceptor
+    sentinel:
+      transport:
+        dashboard: localhost:8080
+      eager: true
+logging:
+  level:
+    com.example.feign: Debug
+feign:
+  sentinel:
+    enabled: true
+---
+spring:
+  config:
+    import:
+      - nacos:service-order.yml?group=order
+#      - nacos:database.yml?group=order
+    activate:
+      on-profile: dev

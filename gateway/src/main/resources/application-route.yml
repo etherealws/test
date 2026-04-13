@@ -1,0 +1,24 @@
+spring:
+  cloud:
+    gateway:
+      globalcors: #配置跨域
+        cors-configurations:
+          '[/**]':
+            allowed-origin-patterns: "*"
+            allowed-methods: "*"
+            allowed-headers: "*"
+      routes:
+        - id: order-route
+          uri: lb://service-order
+          predicates:
+            - Path=/api/order/**
+          filters:
+            - RewritePath=/api/order/(?<segment>.*),/${segment}
+        - id: product-route
+          uri: lb://service-product
+          predicates:
+            - Path=/api/product/**
+          filters:
+            - RewritePath=/api/product/(?<segment>.*),/${segment}
+      default-filters:
+        - AddResponseHeader=X-Response-aaa,123
